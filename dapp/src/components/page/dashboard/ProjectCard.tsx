@@ -20,6 +20,7 @@ import { extractConfigData, toast } from "../../../utils/utils";
 
 interface ProjectConfig {
   projectName: string;
+  projectFullName?: string;
   description?: string;
   logoImageLink?: string | null;
   officials: {
@@ -72,7 +73,7 @@ const ProjectCard = ({ config }: { config: ProjectConfig }) => {
       } else {
         toast.error(
           "Something Went Wrong!",
-          `There is not such project: ${config.projectName}`,
+          `There is no such project: ${config.projectName}`,
         );
       }
     } catch (e: any) {
@@ -102,8 +103,11 @@ const ProjectCard = ({ config }: { config: ProjectConfig }) => {
       <div className="flex-grow bg-white p-4 sm:p-6 flex flex-col gap-4 sm:gap-[30px] justify-between">
         <div className="flex flex-col gap-2 sm:gap-3">
           <h3 className="project-name text-xl sm:text-2xl leading-6 font-medium font-firamono text-pink">
-            {config.projectName || "No project name"}
+            {config.projectFullName || config.projectName || "No project name"}
           </h3>
+          <p className="text-sm text-secondary">
+            <span className="font-medium">{config.projectName}</span>
+          </p>
           <p className="description text-sm sm:text-base font-victormono text-zinc-800 line-clamp-2 min-h-[2.5rem] sm:min-h-[3rem]">
             {config.description || "No description"}
           </p>

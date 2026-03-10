@@ -23,6 +23,21 @@ import { getProject } from "@service/ReadContractService";
 import { calculateDirectoryCid } from "utils/ipfsFunctions";
 import toml from "toml";
 
+// Validate DBA (Project Full Name): ASCII-only, max 100 chars
+const validateDbaField = (value: string): string | null => {
+  if (!value.trim()) {
+    return "Project full name is required";
+  }
+  if (value.length > 100) {
+    return "Project full name must be 100 characters or fewer";
+  }
+  // Printable ASCII characters only
+  if (!/^[\x20-\x7E]+$/.test(value)) {
+    return "Project full name may only contain ASCII characters";
+  }
+  return null;
+};
+
 const UpdateConfigModal = () => {
   const infoLoaded = useStore(projectInfoLoaded);
   const [showButton, setShowButton] = useState(false);
@@ -42,6 +57,8 @@ const UpdateConfigModal = () => {
   ]);
   const [maintainerGithubs, setMaintainerGithubs] = useState<string[]>([""]);
   const [githubRepoUrl, setGithubRepoUrl] = useState("");
+  const [projectFullName, setProjectFullName] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [orgName, setOrgName] = useState("");
   const [orgUrl, setOrgUrl] = useState("");
   const [orgLogo, setOrgLogo] = useState("");
@@ -51,37 +68,43 @@ const UpdateConfigModal = () => {
   const [addrErrors, setAddrErrors] = useState<(string | null)[]>([null]);
   const [ghErrors, setGhErrors] = useState<(string | null)[]>([null]);
   const [repoError, setRepoError] = useState<string | null>(null);
+  const [projectFullNameError, setProjectFullNameError] = useState<
+    string | null
+  >(null);
 
   // pre-fill from current config and gate by maintainer status
   useEffect(() => {
     if (!infoLoaded) return;
     const projectInfo = loadProjectInfo();
     const cfg = loadConfigData();
+
     if (!projectInfo || !projectInfo.maintainers || !projectInfo.config) {
       setShowButton(false);
       return;
     }
+
     setMaintainerAddresses(projectInfo.maintainers);
     setMaintainerGithubs(
       cfg?.authorGithubNames || projectInfo.maintainers.map(() => ""),
     );
     setGithubRepoUrl(projectInfo.config.url);
+    setProjectName(projectInfo.name || "");
+    setProjectFullName(cfg?.projectFullName || projectInfo.name || "");
     setOrgName(cfg?.organizationName || "");
     setOrgUrl(cfg?.officials?.websiteLink || "");
     setOrgLogo(cfg?.logoImageLink || "");
     setOrgDescription(cfg?.description || "");
+
     setAddrErrors(projectInfo.maintainers.map(() => null));
     setGhErrors(projectInfo.maintainers.map(() => null));
 
     // Show button only if the connected wallet is a maintainer
-    // Use the same approach as other project actions
     import("@service/walletService")
       .then(({ loadedPublicKey }) => {
         const publicKey = loadedPublicKey();
-        const isMaintainer = publicKey
-          ? projectInfo.maintainers.includes(publicKey)
-          : false;
-        setShowButton(isMaintainer);
+        setShowButton(
+          publicKey ? projectInfo.maintainers.includes(publicKey) : false,
+        );
       })
       .catch(() => setShowButton(false));
   }, [infoLoaded]);
@@ -119,16 +142,24 @@ const UpdateConfigModal = () => {
     setGhErrors(newGhErr);
     return ok;
   };
+
   const validateRepo = () => {
     const e = validateGithubUrl(githubRepoUrl);
     setRepoError(e);
     return e === null;
   };
 
+  // Validate the DBA field and set error state; returns true if valid
+  const validateProjectFullName = (): boolean => {
+    const dbaError = validateDbaField(projectFullName);
+    setProjectFullNameError(dbaError);
+    return dbaError === null;
+  };
+
   // build TOML
   const buildToml = (): string => {
     return `VERSION="2.0.0"
-\nACCOUNTS=[\n${maintainerAddresses.map((a) => `    "${a}"`).join(",\n")}\n]\n\n[DOCUMENTATION]\nORG_NAME="${orgName}"\nORG_URL="${orgUrl}"\nORG_LOGO="${orgLogo}"\nORG_DESCRIPTION="${orgDescription}"\nORG_GITHUB="${githubRepoUrl.split("https://github.com/")[1] || ""}"\n\n${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}\n`;
+\nACCOUNTS=[\n${maintainerAddresses.map((a) => `    "${a}"`).join(",\n")}\n]\n\n[DOCUMENTATION]\nORG_DBA="${projectFullName.trim()}"\nORG_NAME="${orgName}"\nORG_URL="${orgUrl}"\nORG_LOGO="${orgLogo}"\nORG_DESCRIPTION="${orgDescription}"\nORG_GITHUB="${githubRepoUrl.split("https://github.com/")[1] || ""}"\n\n${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}\n`;
   };
 
   const handleSubmit = async () => {
@@ -154,6 +185,7 @@ const UpdateConfigModal = () => {
         >[0];
         setConfigData(extractConfigData(parsedToml, p));
       }
+
       toast.success(
         "Config updated",
         "Project configuration updated successfully.",
@@ -178,6 +210,7 @@ const UpdateConfigModal = () => {
         <img src="/icons/gear.svg" className="w-5 h-5 flex-shrink-0" alt="" />
         <span>Update config</span>
       </button>
+
       {open && (
         <FlowProgressModal
           isOpen={open}
@@ -259,6 +292,7 @@ const UpdateConfigModal = () => {
                   </div>
                 </div>
               )}
+
               {step === 2 && (
                 <div className="flex flex-col md:flex-row items-center gap-6 md:gap-[18px]">
                   <img
@@ -269,8 +303,33 @@ const UpdateConfigModal = () => {
                     <Step step={2} totalSteps={3} />
                     <Title
                       title="Project details"
-                      description="Organisation & repository"
+                      description="Project name, organisation & repository"
                     />
+
+                    <Input
+                      label="Project Name (read-only)"
+                      value={projectName}
+                      description="Project name used for the project (cannot be modified)"
+                      disabled
+                    />
+
+                    <Input
+                      label="Project Full Name"
+                      placeholder="My Awesome Project"
+                      value={projectFullName}
+                      onChange={(e) => {
+                        // Printable ASCII-only sanitization; enforce max 100 chars
+                        const sanitized = e.target.value.replace(
+                          /[^\x20-\x7E]/g,
+                          "",
+                        );
+                        setProjectFullName(sanitized.slice(0, 100));
+                        setProjectFullNameError(null);
+                      }}
+                      description="Human-readable name shown in the UI (up to 100 ASCII characters)."
+                      error={projectFullNameError || undefined}
+                    />
+
                     <Input
                       label="Organisation name"
                       value={orgName}
@@ -291,6 +350,7 @@ const UpdateConfigModal = () => {
                       value={orgDescription}
                       onChange={(e) => setOrgDescription(e.target.value)}
                     />
+
                     <Input
                       label="GitHub repository URL"
                       value={githubRepoUrl}
@@ -300,13 +360,16 @@ const UpdateConfigModal = () => {
                       }}
                       error={repoError || undefined}
                     />
+
                     <div className="flex justify-between mt-4">
                       <Button type="secondary" onClick={() => setStep(1)}>
                         Back
                       </Button>
                       <Button
                         onClick={() => {
-                          if (validateRepo()) setStep(3);
+                          const isRepoValid = validateRepo();
+                          const isDbaValid = validateProjectFullName();
+                          if (isRepoValid && isDbaValid) setStep(3);
                         }}
                       >
                         Next
@@ -315,6 +378,7 @@ const UpdateConfigModal = () => {
                   </div>
                 </div>
               )}
+
               {step === 3 && (
                 <div>
                   <Step step={3} totalSteps={3} />

@@ -33,9 +33,26 @@ type ModalProps = {
   onClose: () => void;
 };
 
+// Validate DBA (Project Full Name): printable ASCII only, max 100 chars
+const validateDbaField = (value: string): string | null => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "Project full name is required";
+  }
+  if (trimmed.length > 100) {
+    return "Project full name must be 100 characters or fewer";
+  }
+  // Printable ASCII check (space through ~)
+  if (!/^[\x20-\x7E]+$/.test(trimmed)) {
+    return "Project full name may only contain ASCII characters";
+  }
+  return null;
+};
+
 const CreateProjectModal: FC<ModalProps> = ({ onClose }) => {
   const [step, setStep] = useState(1);
   const [projectName, setProjectName] = useState("");
+  const [projectFullName, setProjectFullName] = useState("");
   const [maintainerAddresses, setMaintainerAddresses] = useState<string[]>([
     loadedPublicKey() || "",
   ]);
@@ -52,6 +69,9 @@ const CreateProjectModal: FC<ModalProps> = ({ onClose }) => {
 
   // Form validation errors
   const [projectNameError, setProjectNameError] = useState<string | null>(null);
+  const [projectFullNameError, setProjectFullNameError] = useState<
+    string | null
+  >(null);
   const [maintainersErrors, setMaintainersErrors] = useState<
     Array<string | null>
   >([null]);
@@ -110,6 +130,7 @@ const CreateProjectModal: FC<ModalProps> = ({ onClose }) => {
     }
   };
 
+  // Full SorobanDomain validation (restored from original)
   const validateProjectName = useCallback(async () => {
     if (!projectName.trim()) {
       throw new Error("Project name cannot be empty");
@@ -183,7 +204,7 @@ const CreateProjectModal: FC<ModalProps> = ({ onClose }) => {
     };
   }, [domainCheckTimeout]);
 
-  // Check domain availability with debounce
+  // Check domain availability with debounce (restored from original)
   useEffect(() => {
     if (!projectName || projectName.length < 4) {
       setDomainStatus(null);
@@ -314,6 +335,7 @@ ${maintainerAddresses.map((a) => `    "${a}"`).join(",\n")}
 ]
 
 [DOCUMENTATION]
+ORG_DBA="${projectFullName.trim()}"
 ORG_NAME="${orgName}"
 ORG_URL="${orgUrl}"
 ORG_LOGO="${orgLogo}"
@@ -374,7 +396,7 @@ ${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}
     }
   };
 
-  // Validate project name and set error
+  // Validate project name (SorobanDomain) and set error — full logic restored
   const validateAndSetProjectNameError = async () => {
     try {
       // First check basic validation
@@ -448,16 +470,16 @@ ${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}
                   <Step step={step} totalSteps={5} />
                   <Title
                     title="Welcome to Your New Project!"
-                    description="Add your project's name, slogan, and description to showcase its goals."
+                    description="Add your project name and display name to get started."
                   />
                 </div>
                 <div className="relative">
                   <Input
-                    label="Project Name"
-                    placeholder="Write the name"
+                    label="Project Name (On-chain)"
+                    placeholder="Write the project name (e.g., myproject)"
                     value={projectName}
                     onChange={(e) => {
-                      // Only allow lowercase letters a-z
+                      // Only allow lowercase letters a-z (SorobanDomain restriction)
                       const validInput = e.target.value.replace(/[^a-z]/g, "");
                       setProjectName(validInput);
                       setProjectNameError(null); // Clear error when typing
@@ -466,7 +488,7 @@ ${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}
                       projectName.length >= 4 &&
                       projectName.length <= 15 &&
                       /^[a-z]+$/.test(projectName)
-                        ? "Project name can only contain lowercase letters (a-z)"
+                        ? "This will be your unique on-chain identifier (e.g., myproject.xlm)"
                         : "Project name should be between 4-15 lowercase letters (a-z)"
                     }
                     error={projectNameError}
@@ -497,6 +519,24 @@ ${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}
                     </div>
                   )}
                 </div>
+                <Input
+                  label="Project Full Name"
+                  placeholder="My Awesome Project"
+                  value={projectFullName}
+                  onChange={(e) => {
+                    // Printable ASCII-only sanitization for DBA field
+                    const sanitized = e.target.value.replace(
+                      /[^\x20-\x7E]/g,
+                      "",
+                    );
+
+                    // Max 100 characters
+                    setProjectFullName(sanitized.slice(0, 100));
+                    setProjectFullNameError(null);
+                  }}
+                  description="Human-readable name shown in the UI (up to 100 ASCII characters)."
+                  error={projectFullNameError}
+                />
               </div>
             </div>
             <div className="flex flex-col sm:flex-row sm:justify-end gap-3 sm:gap-[18px]">
@@ -513,7 +553,15 @@ ${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}
                 onClick={async () => {
                   setIsLoading(true);
                   try {
-                    // Perform validation directly in the click handler
+                    // Validate DBA field first
+                    const dbaError = validateDbaField(projectFullName);
+                    if (dbaError) {
+                      setProjectFullNameError(dbaError);
+                      setIsLoading(false);
+                      return;
+                    }
+
+                    // Perform SorobanDomain validation
                     const isValid = await validateAndSetProjectNameError();
 
                     if (isValid) {
@@ -800,9 +848,18 @@ ${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}
                 Back to the First Step
               </Button>
             </div>
-            <Label label="Project name">
-              <p className="leading-6 text-xl text-primary">{projectName}</p>
+            <Label label="Project Name (On-chain)">
+              <p className="leading-6 text-xl text-primary">
+                {projectName}.xlm
+              </p>
             </Label>
+            {projectFullName && (
+              <Label label="Project Full Name">
+                <p className="leading-6 text-xl text-primary">
+                  {projectFullName}
+                </p>
+              </Label>
+            )}
           </div>
           <div className="h-[1px] bg-[#ECE3F4]" />
           <div className="flex flex-col gap-6">

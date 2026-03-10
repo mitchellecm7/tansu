@@ -380,11 +380,13 @@ import Button from "components/utils/Button";
           );
         }
 
+        const configData = loadConfigData();
+
         const projectNameElement = document.getElementById("project-name");
         if (projectNameElement) {
-          projectNameElement.textContent = projectInfo.name;
+          projectNameElement.textContent =
+            configData?.projectFullName || projectInfo.name;
         }
-        const configData = loadConfigData();
 
         const projectThumbnail = document.getElementById(
           "project-thumbnail",
