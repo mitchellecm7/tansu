@@ -3,6 +3,7 @@ import { useStore } from "@nanostores/react";
 import Button from "./utils/Button";
 
 import { connectedPublicKey } from "../utils/store";
+import { loadedPublicKey } from "../service/walletService";
 import { toast } from "../utils/utils";
 
 // Constants for URL handling
@@ -21,6 +22,13 @@ const NavbarSearch = () => {
     setIsClient(true);
     saveOriginalUrl();
     initializeSearchTerm();
+
+    // Sync nanostore from walletService if not yet populated.
+    // Handles load-order races where initializeConnection ran before this component mounted.
+    if (!connectedPublicKey.get()) {
+      const pk = loadedPublicKey();
+      if (pk) connectedPublicKey.set(pk);
+    }
   }, []);
 
   // Save the original URL when the component mounts
