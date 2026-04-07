@@ -35,7 +35,9 @@ const ExecuteProposalModal: React.FC<ExecuteProposalModalProps> = ({
   onClose,
 }) => {
   const [step, setStep] = useState(1);
-  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(
+    proposal ? !proposal.publicVoting : false,
+  );
 
   const [seeds, setSeeds] = useState<bigint[] | null>(null);
   const [tallies, setTallies] = useState<bigint[] | null>(null);
@@ -94,15 +96,8 @@ const ExecuteProposalModal: React.FC<ExecuteProposalModalProps> = ({
   }, [outcome, computedResult, proposal?.outcome_contracts]);
 
   useEffect(() => {
-    if (
-      voteStatus &&
-      voteStatus.approve.score === 0 &&
-      voteStatus.reject.score === 0 &&
-      voteStatus.abstain.score === 0
-    ) {
-      setIsAnonymous(true);
-    }
-  }, [voteStatus]);
+    setIsAnonymous(proposal ? !proposal.publicVoting : false);
+  }, [proposal]);
 
   useEffect(() => {
     const checkMaintainer = async () => {

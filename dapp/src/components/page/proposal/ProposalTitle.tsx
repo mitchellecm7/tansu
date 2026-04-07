@@ -63,6 +63,12 @@ const ProposalTitle: React.FC<Props> = ({
     setShowVotingResultModal(true);
   };
 
+  const totalVotes =
+    (proposal?.voteStatus?.approve?.score || 0) +
+    (proposal?.voteStatus?.reject?.score || 0) +
+    (proposal?.voteStatus?.abstain?.score || 0);
+  const isAnonymousProposal = proposal ? !proposal.publicVoting : false;
+
   return (
     <>
       <div className="flex flex-col md:flex-row gap-4 md:gap-[30px]">
@@ -110,27 +116,28 @@ const ProposalTitle: React.FC<Props> = ({
                   reject={proposal?.voteStatus?.reject?.score || 0}
                   abstain={proposal?.voteStatus?.abstain?.score || 0}
                 />
-                {(proposal?.voteStatus?.approve?.score || 0) +
-                  (proposal?.voteStatus?.reject?.score || 0) +
-                  (proposal?.voteStatus?.abstain?.score || 0) >
-                0 ? (
+                {totalVotes > 0 ? (
                   <Button
                     type="secondary"
                     size="2xs"
                     icon="/icons/eye.svg"
                     onClick={openVotingResultModal}
                   />
-                ) : isMaintainer ? (
-                  <Button
-                    type="secondary"
-                    size="2xs"
-                    icon="/icons/eye.svg"
-                    onClick={() => setShowVerifyModal(true)}
-                  />
+                ) : isAnonymousProposal ? (
+                  isMaintainer ? (
+                    <Button
+                      type="secondary"
+                      size="2xs"
+                      icon="/icons/eye.svg"
+                      onClick={() => setShowVerifyModal(true)}
+                    />
+                  ) : (
+                    <span className="text-sm text-secondary">
+                      Anonymous voting
+                    </span>
+                  )
                 ) : (
-                  <span className="text-sm text-secondary">
-                    Anonymous voting
-                  </span>
+                  <span className="text-sm text-secondary">No votes yet</span>
                 )}
               </div>
             </div>
