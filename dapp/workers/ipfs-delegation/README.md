@@ -1,66 +1,55 @@
 # IPFS Delegation Worker
 
-Cloudflare Worker that generates Storacha delegations for IPFS uploads.
+Cloudflare Worker that verifies a signed transaction and then uploads the CAR
+file to Filebase. Once Filebase succeeds, it pins the resulting CID on Pinata
+in the background when Pinata pinning is enabled.
 
 ## API
 
 ```json
 POST /
 {
-  "did": "did:key:...",
-  "signedTxXdr": "AAAA..."
+  "cid": "<expected-root-cid>",
+  "signedTxXdr": "<signed transaction xdr>",
+  "car": "<base64-car-bytes>"
 }
 ```
 
-Returns: binary delegation archive
+The worker verifies the upload request by:
 
-The worker validates the signed transaction is cryptographically signed by the source account before generating the delegation. It automatically detects whether the transaction is from testnet or mainnet.
+- it verifies the Stellar transaction signature from `signedTxXdr`
+- it checks the transaction has at least one operation
+- it recalculates the root CID from the uploaded CAR and checks it matches
+- it uploads to Filebase with exponential backoff retries
+- it can pin that CID on Pinata asynchronously with exponential backoff retries
 
-## Storacha setup
+## Returns JSON
 
-Follow Storacha's documentation to create a Space and obtain its Proof (a UCAN proof string).
-
-If you do not have an account, you will be prompted to create one and select a plan. The free plan is more than enough
-for what we want to do.
-
-Install the CLI:
-
-```bash
-bun install @storacha/cli
+```json
+{
+  "success": true,
+  "cid": "<cid>"
+}
 ```
 
-Create an account or log in:
-
-```bash
-storacha login
-```
-
-Create a space:
-
-```bash
-storacha space create tansu
-```
-
-This will generate a space which is identifiable by a DID, something like `did:key:z6Mk...`.
-
-The next step is to create a key, this is `STORACHA_SING_PRIVATE_KEY`:
-
-```bash
-storacha key create --json
-```
-
-The key itself has its own DID. Use that DID to create a delegation proof:
-
-```bash
-export AUDIENCE=did:key:z6Mk...
-storacha delegation create $AUDIENCE -c space/blob/add -c space/index/add -c filecoin/offer -c upload/add --base64
-```
-
-This is your `STORACHA_PROOF`.
+- If Filebase upload fails, `success` is `false` and the HTTP status is `502`.
+- Pinata pinning is disabled by default.
+- If enabled, Pinata pinning does not block the response. It runs after
+  Filebase succeeds.
+- Filebase retries 3 times with exponential backoff.
+- When enabled, Pinata pin-by-CID retries 3 times with exponential backoff in
+  the background.
 
 ## Development
 
-Add your `STORACHA_SING_PRIVATE_KEY` and `STORACHA_PROOF` to `.dev.vars`
+Add your provider tokens to `.dev.vars`:
+
+```bash
+FILEBASE_TOKEN=<filebase_api_token>
+ENABLE_PINATA_PINNING=false
+PINATA_JWT=<optional_pinata_jwt>
+PINATA_GROUP_ID=<optional_pinata_group_id>
+```
 
 ### Start the Worker
 
@@ -86,6 +75,11 @@ ENV=DEV bun run test  # Use testnet environment
 ENV=PROD bun run test # Use production environment
 ```
 
+The test script generates a CAR, signs a local Stellar test transaction, and
+submits the same JSON payload the dapp sends. A successful local test confirms
+the blocking Filebase upload path. When Pinata pinning is enabled, that step
+runs asynchronously after the response is returned.
+
 ## Deployment
 
 ### Prerequisites
@@ -96,16 +90,20 @@ bunx wrangler login
 
 ### Security
 
-All secrets are stored in Cloudflare Secrets. Set secrets via wrangler (per environment):
+All secrets are stored in Cloudflare Secrets. Set them with wrangler:
 
 ```bash
 # Development
-bunx wrangler secret put STORACHA_SING_PRIVATE_KEY --env testnet
-bunx wrangler secret put STORACHA_PROOF --env testnet
+bunx wrangler secret put FILEBASE_TOKEN --env testnet
+bunx wrangler secret put ENABLE_PINATA_PINNING --env testnet
+bunx wrangler secret put PINATA_JWT --env testnet
+bunx wrangler secret put PINATA_GROUP_ID --env testnet
 
 # Production
-bunx wrangler secret put STORACHA_SING_PRIVATE_KEY --env production
-bunx wrangler secret put STORACHA_PROOF --env production
+bunx wrangler secret put FILEBASE_TOKEN --env production
+bunx wrangler secret put ENABLE_PINATA_PINNING --env production
+bunx wrangler secret put PINATA_JWT --env production
+bunx wrangler secret put PINATA_GROUP_ID --env production
 ```
 
 ### Development (Testnet)
@@ -123,5 +121,3 @@ bunx wrangler deploy --env production
 ```
 
 Deploys to `https://ipfs.tansu.dev`
-
-Custom Domain configuration automatically handles DNS records and SSL certificates.

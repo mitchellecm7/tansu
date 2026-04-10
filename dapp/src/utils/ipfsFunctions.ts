@@ -30,14 +30,14 @@ const GATEWAYS: ReadonlyArray<{
     buildUrl: (cid, path) => `https://ipfs.filebase.io/ipfs/${cid}${path}`,
   },
   {
-    name: "storacha",
-    buildUrl: (cid, path) => `https://${cid}.ipfs.storacha.link${path}`,
+    name: "ipfs.io",
+    buildUrl: (cid, path) => `https://ipfs.io/ipfs/${cid}${path}`,
   },
 ];
 
-const CACHE_KEY_PREFIX = "ipfs:v3:";
-const DEFAULT_IPFS_TIMEOUT_MS = 8000;
-const PER_ATTEMPT_MS = 2000;
+const CACHE_KEY_PREFIX = "ipfs:v4:"; // Updated version prefix
+const DEFAULT_IPFS_TIMEOUT_MS = 10000;
+const PER_ATTEMPT_MS = 3000;
 
 export type FetchFromIpfsOptions = {
   timeoutMs?: number;
@@ -73,8 +73,7 @@ async function fetchOne(
 }
 
 /**
- * Core IPFS fetch: CID + path. Checks cache; on miss tries gateway 1 then gateway 2.
- * All retrieval in the app goes through this or a wrapper that calls it.
+ * Core IPFS fetch: CID + path. Checks cache; on miss tries gateways in order.
  */
 export async function fetchFromIpfs(
   cid: string,
@@ -104,7 +103,7 @@ export async function fetchFromIpfs(
         attemptMs,
       );
       if (!res.ok) {
-        lastError = new Error(`HTTP ${res.status}`);
+        lastError = new Error(`HTTP ${res.status} from ${gateway.name}`);
         continue;
       }
       // Only accept when the final response body is readable (outcome of redirect), not just status
@@ -120,17 +119,13 @@ export async function fetchFromIpfs(
     } catch (err) {
       lastError = err;
     }
-    const next = GATEWAYS[i + 1];
-    if (import.meta.env?.DEV && next) {
-      console.warn(`[IPFS] ${gateway.name} failed, trying ${next.name}`);
-    }
   }
 
-  throw lastError ?? new Error("IPFS fetch failed");
+  throw lastError ?? new Error("IPFS fetch failed from all gateways");
 }
 
 /**
- * Fetch IPFS content as text (e.g. markdown). Uses core fetch; no separate text cache.
+ * Fetch IPFS content as text (e.g. markdown).
  */
 export async function fetchTextFromIpfs(
   cid: string,
@@ -147,7 +142,7 @@ export async function fetchTextFromIpfs(
 }
 
 /**
- * Fetch IPFS content as JSON. Uses core fetch; caches parsed JSON by (cid, path).
+ * Fetch IPFS content as JSON.
  */
 export async function fetchJsonFromIpfs(
   cid: string,
@@ -175,7 +170,7 @@ export async function fetchJsonFromIpfs(
 const TANSU_TOML_PATH = "/tansu.toml";
 
 /**
- * Fetch and parse project tansu.toml from IPFS. Caches parsed result by CID.
+ * Fetch and parse project tansu.toml from IPFS.
  */
 export async function fetchTomlFromIpfs(
   cid: string,
@@ -230,30 +225,151 @@ export const getProposalLinkFromIpfs = (cid: string): string =>
 export const getOutcomeLinkFromIpfs = (cid: string): string =>
   getIpfsUrl(cid, "/outcomes.json");
 
-export const calculateDirectoryCid = async (files: File[]): Promise<string> => {
+export interface CarPackResult {
+  cid: string;
+  carBlob: Blob;
+}
+
+export async function calculateDirectoryCid(files: File[]): Promise<string> {
+  const { cid } = await packFilesToCar(files);
+  return cid;
+}
+
+/**
+ * Pack files into a CAR so the same payload can be reused for upload.
+ */
+export async function packFilesToCar(files: File[]): Promise<CarPackResult> {
   const { createDirectoryEncoderStream, CAREncoderStream } =
     await import("ipfs-car");
 
-  let rootCID: { toString(): string } | undefined;
-
   const stream = createDirectoryEncoderStream(files);
+  let rootCID: string | undefined;
+  const blocks: any[] = [];
 
-  const captureRoot = new TransformStream({
-    transform(block: any, controller) {
-      rootCID = block.cid;
-      controller.enqueue(block);
+  await stream.pipeTo(
+    new WritableStream({
+      write(block) {
+        blocks.push(block);
+        rootCID = block.cid.toString();
+      },
+    }),
+  );
+
+  if (!rootCID) throw new Error("Failed to generate CID");
+
+  const carEncoder = new CAREncoderStream([blocks[blocks.length - 1]!.cid]);
+  const chunks: Uint8Array[] = [];
+
+  await new ReadableStream({
+    pull(controller) {
+      if (blocks.length > 0) {
+        controller.enqueue(blocks.shift());
+      } else {
+        controller.close();
+      }
     },
-  });
+  })
+    .pipeThrough(carEncoder)
+    .pipeTo(
+      new WritableStream({
+        write(chunk) {
+          chunks.push(chunk);
+        },
+      }),
+    );
 
-  const discard = new WritableStream({
-    write() {},
-  });
+  return {
+    cid: rootCID,
+    carBlob: new Blob(chunks, { type: "application/vnd.ipld.car" }),
+  };
+}
 
-  await stream
-    .pipeThrough(captureRoot)
-    .pipeThrough(new CAREncoderStream())
-    .pipeTo(discard);
+interface UploadToIpfsProxyResponse {
+  cid?: string;
+  success?: boolean;
+  error?: string;
+}
 
-  if (!rootCID) throw new Error("Failed to compute CID: no root block found");
-  return rootCID.toString();
-};
+export async function uploadToIpfsProxy(params: {
+  cid: string;
+  carBlob: Blob;
+  signedTxXdr: string;
+}): Promise<string> {
+  const { cid, carBlob, signedTxXdr } = params;
+
+  if (!cid) {
+    throw new Error("Missing expected CID for IPFS upload");
+  }
+
+  if (!signedTxXdr) {
+    throw new Error("Missing signed transaction for IPFS upload");
+  }
+
+  if (!(carBlob instanceof Blob) || carBlob.size === 0) {
+    throw new Error("Invalid CAR blob for IPFS upload");
+  }
+
+  const bytes = new Uint8Array(await carBlob.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+  }
+  const car = btoa(binary);
+
+  async function uploadOnce(): Promise<string> {
+    const response = await fetch(import.meta.env.PUBLIC_DELEGATION_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cid,
+        signedTxXdr,
+        car,
+      }),
+      signal: AbortSignal.timeout(120_000),
+    });
+
+    if (!response.ok) {
+      let errorMessage = "IPFS upload failed";
+      try {
+        const contentType = response.headers.get("content-type") ?? "";
+        if (contentType.includes("application/json")) {
+          const data = (await response.json()) as UploadToIpfsProxyResponse;
+          errorMessage = data.error ?? errorMessage;
+        } else {
+          errorMessage = (await response.text()) || errorMessage;
+        }
+      } catch {
+        // Keep the default message if parsing fails.
+      }
+      throw new Error(`${errorMessage} (${response.status})`);
+    }
+
+    const result = (await response.json()) as UploadToIpfsProxyResponse;
+    if (!result.cid) {
+      throw new Error("Upload response missing CID");
+    }
+    if (result.cid !== cid) {
+      throw new Error(
+        `Critical CID mismatch: expected ${cid}, got ${result.cid}`,
+      );
+    }
+    if (!result.success) {
+      throw new Error(result.error ?? "IPFS upload failed");
+    }
+    if (result.error) {
+      console.warn("[IPFS] Upload partially succeeded:", result.error);
+    }
+    return result.cid;
+  }
+
+  try {
+    return await uploadOnce();
+  } catch (firstError) {
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    try {
+      return await uploadOnce();
+    } catch {
+      throw firstError;
+    }
+  }
+}
