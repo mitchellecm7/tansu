@@ -231,6 +231,9 @@ impl MembershipTrait for Tansu {
     /// Returns the Default badge weight (1) if the address has no badges
     /// assigned or is not a registered member.
     ///
+    /// There is a special case to use Neural Quorum Governance instead of
+    /// badges if we are using a specific project.
+    ///
     /// # Arguments
     /// * `env` - The environment object
     /// * `project_key` - The project key identifier
@@ -241,6 +244,7 @@ impl MembershipTrait for Tansu {
     fn get_max_weight(env: Env, project_key: Bytes, member_address: Address) -> u32 {
         let member_key = types::DataKey::Member(member_address.clone());
 
+        // special case to use Neural Quorum Governance
         let key = env
             .storage()
             .instance()

@@ -41,7 +41,7 @@ pub enum Badge {
     Developer = 10_000_000,
     Triage = 5_000_000,
     Community = 1_000_000,
-    Verified = 500_000, // have a soroban domain
+    Verified = 500_000,
     Default = 1,
 }
 

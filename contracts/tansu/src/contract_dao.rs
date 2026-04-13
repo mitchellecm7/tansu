@@ -888,7 +888,6 @@ pub fn public_execute(proposal: &types::Proposal) -> types::ProposalStatus {
 /// # Returns
 /// * `types::ProposalStatus` - The final status (Approved if approve > reject, Rejected if reject > approve, Cancelled if equal)
 pub fn anonymous_execute(tallies: &Vec<u128>) -> types::ProposalStatus {
-    // Use get() method to access elements safely
     let voted_approve = tallies
         .get(0)
         .expect("anonymous_execute missing approve tally entry");
