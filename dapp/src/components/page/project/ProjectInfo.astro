@@ -264,11 +264,11 @@ import Button from "components/utils/Button";
     const updateConfigButton = document.querySelector("[data-update-config]");
     const udpateConfigModal = document.getElementById(
       "update-config-modal",
-    ) as HTMLDialogElement;
+    ) as HTMLDialogElement | null;
 
     if (updateConfigButton) {
       updateConfigButton.addEventListener("click", () => {
-        udpateConfigModal.showModal();
+        udpateConfigModal?.showModal();
       });
     }
 
