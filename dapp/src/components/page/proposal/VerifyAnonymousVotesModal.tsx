@@ -21,6 +21,8 @@ const VerifyAnonymousVotesModal: React.FC<Props> = ({
   proposalId,
   onClose,
 }) => {
+  const [tallies, setTallies] = useState<bigint[]>([]);
+const [seeds, setSeeds] = useState<bigint[]>([]);
   const [step, setStep] = useState(1);
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [voteStatus, setVoteStatus] = useState<VoteStatus | null>(null);
@@ -38,6 +40,8 @@ const VerifyAnonymousVotesModal: React.FC<Props> = ({
         privKey,
         true,
       );
+      setTallies(data.tallies);
+setSeeds(data.seeds);
       setVoteStatus(data.voteStatus);
       setProofOk(data.proofOk ?? null);
       setProofErrorMessage(data.proofErrorMessage ?? null);
@@ -113,12 +117,14 @@ const VerifyAnonymousVotesModal: React.FC<Props> = ({
             description="Below are the tallies computed from decrypted votes."
           />
 
-          <AnonymousTalliesDisplay
-            voteStatus={voteStatus || undefined}
-            decodedVotes={decodedVotes}
-            proofOk={proofOk}
-            proofErrorMessage={proofErrorMessage}
-          />
+         <AnonymousTalliesDisplay
+  voteStatus={voteStatus || undefined}
+  decodedVotes={decodedVotes}
+  tallies={tallies}        // ✅ ADD
+  seeds={seeds}            // ✅ ADD
+  proofOk={proofOk}
+  proofErrorMessage={proofErrorMessage}
+/>
 
           <div className="flex justify-center sm:justify-end">
             <Button type="secondary" onClick={onClose}>
