@@ -20,7 +20,6 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
   voteStatus,
   decodedVotes,
   tallies,
-  seeds,
   proofOk,
   proofErrorMessage,
   exportFileNameBase,
@@ -44,51 +43,46 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
         totalVotesOverride={decodedVotes.length}
         countsOverride={counts}
       />
-      {tallies && seeds && tallies.length === 3 && seeds.length === 3 && (
+      {tallies && tallies.length === 3 && (
         <div className="mt-4 p-3 border border-zinc-300 rounded bg-zinc-50 text-sm md:text-base">
-          <p className="font-semibold mb-2">Diagnostics</p>
+          <p className="font-semibold mb-2">Tallies</p>
           <div className="flex justify-between">
-            <span>Approve Tally:</span>
+            <span>Approve:</span>
             <span className="font-mono">{tallies[0].toString()}</span>
           </div>
           <div className="flex justify-between">
-            <span>Reject Tally:</span>
+            <span>Reject:</span>
             <span className="font-mono">{tallies[1].toString()}</span>
           </div>
           <div className="flex justify-between">
-            <span>Abstain Tally:</span>
+            <span>Abstain:</span>
             <span className="font-mono">{tallies[2].toString()}</span>
-          </div>
-          <hr className="my-2" />
-          <div className="flex justify-between">
-            <span>Approve Seeds:</span>
-            <span className="font-mono">{seeds[0].toString()}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Reject Seeds:</span>
-            <span className="font-mono">{seeds[1].toString()}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Abstain Seeds:</span>
-            <span className="font-mono">{seeds[2].toString()}</span>
           </div>
         </div>
       )}
       {decodedVotes.length > 0 && (
         <div className="flex flex-col gap-3">
           <details className="border border-zinc-300 rounded max-h-48 md:max-h-60 overflow-y-auto overflow-x-auto">
-            <summary className="p-2 cursor-pointer text-sm md:text-base">View decoded votes</summary>
+            <summary className="p-2 cursor-pointer text-sm md:text-base">
+              View decoded votes
+            </summary>
             <div className="w-full overflow-x-auto">
               <table className="text-xs md:text-sm w-full min-w-[500px]">
                 <thead>
                   <tr className="bg-zinc-100 text-left">
-                    <th className="p-2">Address</th><th>Vote</th><th>Weight</th><th>Max</th><th>Seed</th>
+                    <th className="p-2">Address</th>
+                    <th>Vote</th>
+                    <th>Weight</th>
+                    <th>Max</th>
+                    <th>Seed</th>
                   </tr>
                 </thead>
                 <tbody>
                   {decodedVotes.map((v, i) => (
                     <tr key={i} className="odd:bg-white even:bg-zinc-50">
-                      <td className="p-1"><AddressDisplay address={v.address} /></td>
+                      <td className="p-1">
+                        <AddressDisplay address={v.address} />
+                      </td>
                       <td className="p-1">{v.vote}</td>
                       <td className="p-1">{v.weight}</td>
                       <td className="p-1">{v.maxWeight}</td>
@@ -100,7 +94,9 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
             </div>
           </details>
           <div className="flex flex-col items-center justify-between gap-3 flex-wrap mt-3">
-            <Button type="primary" size="sm" onClick={() => setShowExportModal(true)}>Export decoded votes</Button>
+            <Button type="primary" size="sm" onClick={() => setShowExportModal(true)}>
+              Export decoded votes
+            </Button>
           </div>
         </div>
       )}
@@ -108,16 +104,26 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
         <div className="flex flex-col gap-2 mt-4">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm md:text-base">Proof:</p>
-            {proofOk === null ? null : proofOk ? <span className="text-green-600 text-xl">✅</span> : <span className="text-red-600 text-xl">❌</span>}
+            {proofOk === null ? null : proofOk ? (
+              <span className="text-green-600 text-xl">✅</span>
+            ) : (
+              <span className="text-red-600 text-xl">❌</span>
+            )}
           </div>
-          {proofOk === false && proofErrorMessage && <p className="text-sm text-red-600 max-w-prose">{proofErrorMessage}</p>}
+          {proofOk === false && proofErrorMessage && (
+            <p className="text-sm text-red-600 max-w-prose">{proofErrorMessage}</p>
+          )}
           <p className="text-xs md:text-sm text-secondary max-w-prose">
-            This check verifies that the aggregated tallies and seeds correspond to the on-chain vote commitments.
+            This check verifies that the aggregated tallies correspond to the on-chain vote commitments.
           </p>
         </div>
       )}
       {showExportModal && (
-        <ExportDecodedVotesModal decodedVotes={decodedVotes} fileNameBase={exportFileNameBase || "decoded-votes"} onClose={() => setShowExportModal(false)} />
+        <ExportDecodedVotesModal
+          decodedVotes={decodedVotes}
+          fileNameBase={exportFileNameBase || "decoded-votes"}
+          onClose={() => setShowExportModal(false)}
+        />
       )}
     </>
   );
