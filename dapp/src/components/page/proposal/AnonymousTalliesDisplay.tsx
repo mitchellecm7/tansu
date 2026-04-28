@@ -1,7 +1,8 @@
+
 import { useState } from "react";
 import VotingResult from "./VotingResult";
 import type { VoteStatus } from "types/proposal";
-import AddressDisplay from "./AddressDisplay";
+import AddressDisplay from "./AddressDisplay"; // import our new component
 import Button from "components/utils/Button";
 import ExportDecodedVotesModal from "./ExportDecodedVotesModal";
 import type { DecodedVote } from "utils/anonymousVoting";
@@ -9,8 +10,6 @@ import type { DecodedVote } from "utils/anonymousVoting";
 interface Props {
   voteStatus: VoteStatus | undefined;
   decodedVotes: DecodedVote[];
-  tallies?: bigint[];
-  seeds?: bigint[];
   proofOk?: boolean | null;
   proofErrorMessage?: string | null;
   exportFileNameBase?: string;
@@ -18,13 +17,14 @@ interface Props {
 
 const AnonymousTalliesDisplay: React.FC<Props> = ({
   voteStatus,
+    tallies,
   decodedVotes,
-  tallies,
   proofOk,
   proofErrorMessage,
   exportFileNameBase,
 }) => {
   const [showExportModal, setShowExportModal] = useState(false);
+  // Compute simple counts by looking at decoded votes (each row is one ballot)
   const counts = decodedVotes.reduce(
     (acc: { approve: number; reject: number; abstain: number }, v) => {
       if (v.vote === "approve") acc.approve += 1;
@@ -43,7 +43,7 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
         totalVotesOverride={decodedVotes.length}
         countsOverride={counts}
       />
-      {tallies && tallies.length === 3 && (
+         {tallies && tallies.length === 3 && (
         <div className="mt-4 p-3 border border-zinc-300 rounded bg-zinc-50 text-sm md:text-base">
           <p className="font-semibold mb-2">Diagnostics</p>
           <div className="flex justify-between">
@@ -93,6 +93,7 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
               </table>
             </div>
           </details>
+
           <div className="flex flex-col items-center justify-between gap-3 flex-wrap mt-3">
             <Button
               type="primary"
@@ -104,18 +105,23 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
           </div>
         </div>
       )}
+
       {proofOk !== undefined && (
         <div className="flex flex-col gap-2 mt-4">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm md:text-base">Proof:</p>
             {proofOk === null ? null : proofOk ? (
-              <span className="text-green-600 text-xl">✅</span>
+              <span aria-label="proof-ok" className="text-green-600 text-xl">
+                ✅
+              </span>
             ) : (
-              <span className="text-red-600 text-xl">❌</span>
+              <span aria-label="proof-failed" className="text-red-600 text-xl">
+                ❌
+              </span>
             )}
           </div>
           {proofOk === false && proofErrorMessage && (
-            <p className="text-sm text-red-600 max-w-prose">
+            <p className="text-sm text-red-600 max-w-prose" role="alert">
               {proofErrorMessage}
             </p>
           )}
@@ -123,15 +129,17 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
             This check verifies that the aggregated tallies and seeds correspond
             to the on-chain vote commitments (weights applied during
             verification). Use it to confirm decrypted results before executing
+            the proposal.
           </p>
           <p className="text-xs md:text-sm text-secondary max-w-prose">
-            Final outcomes are based on weighted vote tallies. For a proposal to
-            be accepted, the tally of approve votes must be higher than the sum
-            of the tallies of reject plus cancel votes. Same goes to reject a
-            proposal.
+            Final outcomes are based on weighted vote tallies. For a proposal
+            to be accepted, the tally of approve votes must be higher than
+            the sum of the tallies of reject plus cancel votes. Same goes to
+            reject a proposal.
           </p>
         </div>
       )}
+
       {showExportModal && (
         <ExportDecodedVotesModal
           decodedVotes={decodedVotes}

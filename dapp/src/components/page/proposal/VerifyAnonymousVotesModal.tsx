@@ -8,6 +8,7 @@ import {
   computeAnonymousVotingData,
   validateAnonymousKeyForProject,
 } from "utils/anonymousVoting";
+import type { DecodedVote } from "utils/anonymousVoting";
 import type { VoteStatus } from "types/proposal";
 import classNames from "classnames";
 
@@ -21,8 +22,6 @@ const VerifyAnonymousVotesModal: React.FC<Props> = ({
   proposalId,
   onClose,
 }) => {
-  const [tallies, setTallies] = useState<bigint[]>([]);
-const [seeds, setSeeds] = useState<bigint[]>([]);
   const [step, setStep] = useState(1);
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [voteStatus, setVoteStatus] = useState<VoteStatus | null>(null);
@@ -30,7 +29,7 @@ const [seeds, setSeeds] = useState<bigint[]>([]);
   const [proofErrorMessage, setProofErrorMessage] = useState<string | null>(
     null,
   );
-  const [decodedVotes, setDecodedVotes] = useState<any[]>([]);
+  const [decodedVotes, setDecodedVotes] = useState<DecodedVote[]>([]);
 
   const computeTalliesAndProof = async (privKey: string) => {
     try {
@@ -40,8 +39,6 @@ const [seeds, setSeeds] = useState<bigint[]>([]);
         privKey,
         true,
       );
-      setTallies(data.tallies);
-setSeeds(data.seeds);
       setVoteStatus(data.voteStatus);
       setProofOk(data.proofOk ?? null);
       setProofErrorMessage(data.proofErrorMessage ?? null);
@@ -117,11 +114,9 @@ setSeeds(data.seeds);
             description="Below are the tallies computed from decrypted votes."
           />
 
-         <AnonymousTalliesDisplay
+                 <AnonymousTalliesDisplay
   voteStatus={voteStatus || undefined}
   decodedVotes={decodedVotes}
-  tallies={tallies}        // ✅ ADD
-  seeds={seeds}            // ✅ ADD
   proofOk={proofOk}
   proofErrorMessage={proofErrorMessage}
 />
