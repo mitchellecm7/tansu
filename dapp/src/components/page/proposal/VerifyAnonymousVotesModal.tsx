@@ -30,7 +30,6 @@ const VerifyAnonymousVotesModal: React.FC<Props> = ({
     null,
   );
   const [decodedVotes, setDecodedVotes] = useState<DecodedVote[]>([]);
-  const [decodedVotes, setDecodedVotes] = useState<DecodedVote[]>([]);
   const [tallies, setTallies] = useState<bigint[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
