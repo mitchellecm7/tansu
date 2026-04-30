@@ -24,7 +24,7 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
   exportFileNameBase,
 }) => {
   const [showExportModal, setShowExportModal] = useState(false);
-  // Compute simple counts by looking at decoded votes (each row is one ballot)
+
   const counts = decodedVotes.reduce(
     (acc: { approve: number; reject: number; abstain: number }, v) => {
       if (v.vote === "approve") acc.approve += 1;
@@ -47,14 +47,17 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
       {tallies && tallies.length === 3 && (
         <div className="mt-4 p-3 border border-zinc-300 rounded bg-zinc-50 text-sm md:text-base">
           <p className="font-semibold mb-2">Tallies</p>
+
           <div className="flex justify-between">
             <span>Approve:</span>
             <span className="font-mono">{tallies[0].toString()}</span>
           </div>
+
           <div className="flex justify-between">
             <span>Reject:</span>
             <span className="font-mono">{tallies[1].toString()}</span>
           </div>
+
           <div className="flex justify-between">
             <span>Abstain:</span>
             <span className="font-mono">{tallies[2].toString()}</span>
@@ -68,6 +71,7 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
             <summary className="p-2 cursor-pointer text-sm md:text-base">
               View decoded votes
             </summary>
+
             <div className="w-full overflow-x-auto">
               <table className="text-xs md:text-sm w-full min-w-[500px]">
                 <thead>
@@ -79,6 +83,7 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
                     <th>Seed</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {decodedVotes.map((v, i) => (
                     <tr key={i} className="odd:bg-white even:bg-zinc-50">
@@ -113,26 +118,23 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm md:text-base">Proof:</p>
             {proofOk === null ? null : proofOk ? (
-              <span aria-label="proof-ok" className="text-green-600 text-xl">
-                ✅
-              </span>
+              <span className="text-green-600 text-xl">✅</span>
             ) : (
-              <span aria-label="proof-failed" className="text-red-600 text-xl">
-                ❌
-              </span>
+              <span className="text-red-600 text-xl">❌</span>
             )}
           </div>
+
           {proofOk === false && proofErrorMessage && (
-            <p className="text-sm text-red-600 max-w-prose" role="alert">
+            <p className="text-sm text-red-600 max-w-prose">
               {proofErrorMessage}
             </p>
           )}
+
           <p className="text-xs md:text-sm text-secondary max-w-prose">
-            This check verifies that the aggregated tallies and seeds correspond
-            to the on-chain vote commitments (weights applied during
-            verification). Use it to confirm decrypted results before executing
-            the proposal.
+            This check verifies that the aggregated tallies correspond to the
+            on-chain vote commitments.
           </p>
+
           <p className="text-xs md:text-sm text-secondary max-w-prose">
             Final outcomes are based on weighted vote tallies. For a proposal to
             be accepted, the tally of approve votes must be higher than the sum
