@@ -1,7 +1,7 @@
 import { useStore } from "@nanostores/react";
 import Button from "components/utils/Button";
 import { useState } from "react";
-import type { Member } from "packages/tansu";
+import type { Member } from "../../../../packages/tansu";
 import type { ProposalView } from "types/proposal";
 import { connectedPublicKey } from "utils/store";
 import { toast, truncateMiddle } from "utils/utils";
@@ -100,8 +100,8 @@ const ProposalTitle: React.FC<Props> = ({
                 >
                   {proposal?.proposer
                     ? truncateMiddle(proposal.proposer, 20)
-: ""}
-</p>
+                    : ""}
+                </p>
               </div>
             </div>
             <div className="flex flex-col gap-3">
@@ -185,7 +185,6 @@ const ProposalTitle: React.FC<Props> = ({
       )}
       {showMemberProfile && proposal?.proposer && (
         <MemberProfileModal
-          isOpen={showMemberProfile}
           onClose={() => setShowMemberProfile(false)}
           member={selectedMember}
           address={proposal.proposer}
