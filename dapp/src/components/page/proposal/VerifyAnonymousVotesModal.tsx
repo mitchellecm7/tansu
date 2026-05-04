@@ -36,18 +36,16 @@ const VerifyAnonymousVotesModal: React.FC<Props> = ({
   const computeTalliesAndProof = async (privKey: string) => {
     try {
       const data = await computeAnonymousVotingData(
-        projectName,
+        projectName!,
         proposalId,
         privKey,
         true,
       );
-
       setVoteStatus(data.voteStatus);
       setProofOk(data.proofOk ?? null);
       setProofErrorMessage(data.proofErrorMessage ?? null);
       setDecodedVotes(data.decodedVotes);
       setTallies(data.tallies ?? []);
-
       return data.decodedVotes.length;
     } catch (err: any) {
       setProcessingError(err.message || "Failed to process key file");
@@ -61,20 +59,14 @@ const VerifyAnonymousVotesModal: React.FC<Props> = ({
     try {
       const fileList = e.target.files;
       if (!fileList || fileList.length === 0) return;
-
       const file = fileList.item(0);
       if (!file) return;
-
       const txt = await file.text();
       const parsed = JSON.parse(txt);
-
       if (!parsed.privateKey) throw new Error("Invalid key file");
       // Validate uploaded key against on-chain config (centralized helper)
-
-      await validateAnonymousKeyForProject(projectName, parsed.publicKey);
-
+      await validateAnonymousKeyForProject(projectName!, parsed.publicKey);
       setProcessingError(null);
-
       const count = await computeTalliesAndProof(parsed.privateKey);
       if (count > 0) setStep(2);
     } catch (err: any) {

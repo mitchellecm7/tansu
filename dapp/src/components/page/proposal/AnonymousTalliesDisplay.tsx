@@ -25,7 +25,6 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
 }) => {
   const [showExportModal, setShowExportModal] = useState(false);
   // Compute simple counts by looking at decoded votes (each row is one ballot)
-
   const counts = decodedVotes.reduce(
     (acc: { approve: number; reject: number; abstain: number }, v) => {
       if (v.vote === "approve") acc.approve += 1;
@@ -72,7 +71,6 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
             <summary className="p-2 cursor-pointer text-sm md:text-base">
               View decoded votes
             </summary>
-
             <div className="w-full overflow-x-auto">
               <table className="text-xs md:text-sm w-full min-w-[500px]">
                 <thead>
@@ -84,7 +82,6 @@ const AnonymousTalliesDisplay: React.FC<Props> = ({
                     <th>Seed</th>
                   </tr>
                 </thead>
-
                 <tbody>
                   {decodedVotes.map((v, i) => {
                     const maxWeight = Number(v.maxWeight);
